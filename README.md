@@ -82,4 +82,3 @@ Running the the tap requires a `config.json` file. Example with the minimal sett
   }
 ```
 
-
