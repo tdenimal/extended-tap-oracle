@@ -2,9 +2,9 @@
 
 from setuptools import setup
 
-setup(name='tap-oracle',
-      version='1.1.2',
-      description='Singer.io tap for extracting data from Oracle',
+setup(name='extended-tap-oracle',
+      version='1.0.0',
+      description='Singer.io tap for extracting data from Oracle - extended for new Oracle versions',
       author='Stitch',
       url='https://singer.io',
       classifiers=['Programming Language :: Python :: 3 :: Only'],
