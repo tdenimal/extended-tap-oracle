@@ -8,6 +8,48 @@
 
 Run and configuration of this [Singer Tap](https://singer.io) depends of the desired replication mode (INCREMENTAL or STREAMING)
 
+
+## Prerequisites : Create user on targeted PDB
+
+Connect to CDB, then switch to targetted PDB
+
+```
+SQL> show con_name
+
+CON_NAME
+------------------------------
+CDB$ROOT
+
+
+SQL> alter session set container=wms17;
+
+Session altered.
+
+SQL> show con_name
+
+CON_NAME
+------------------------------
+WMS17
+```
+
+Tap-Oracle user need to be created with the following rights on DB :
+
+* CREATE_SESSION role
+```
+grant CREATE_SESSION to singer_user;
+```
+* SELECT right on  V_$DATABASE
+```
+grant select on V_$DATABASE to singer_user;
+```
+
+You can also grant select on table to singer, table by table or via SELECT ANY TABLE privilege (up to you)
+
+* SELECT ANY TABLE system privilege
+```
+grant SELECT ANY TABLE to singer_user;
+```
+
 ## Log based replication
 
 Tap-Oracle Log-based replication requires some configuration changes in Oracle database:
@@ -69,7 +111,9 @@ or
 
 ### Configuration
 
-Running the the tap requires a `config.json` file. Example with the minimal settings:
+Running the the tap requires a `config.json` file. 
+
+Example with the minimal settings:
 
 ```json
   {
@@ -78,7 +122,19 @@ Running the the tap requires a `config.json` file. Example with the minimal sett
     "user": "my_user",
     "password": "password",
     "sid": "ORCL",
-    "filter_schemas": "MY_USER" # optional
+    "filter_schemas": "HR" # Lets get only the HR sample schema
   }
+```
+
+You can run a discover run using the previous `config.json` file to acquire all the tables definition
+ 
+```
+tap-oracle --config /tmp/config.json --discover >> /tmp/catalog.json
+```
+
+Then use the catalog.json to run a full export:
+
+```
+tap-oracle --config /tmp/config.json --catalog /tmp/catalog.json
 ```
 

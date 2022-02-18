@@ -2,12 +2,18 @@
 
 from setuptools import setup
 
+with open('README.md') as f:
+      long_description = f.read()
+
 setup(name='extended-tap-oracle',
       version='1.0.0',
       description='Singer.io tap for extracting data from Oracle - extended for new Oracle versions',
       author='Stitch',
-      url='https://singer.io',
-      classifiers=['Programming Language :: Python :: 3 :: Only'],
+      url='https://github.com/tdenimal/extended-tap-oracle',
+      classifiers=[
+          'License :: OSI Approved :: GNU Affero General Public License v3',
+          'Programming Language :: Python :: 3 :: Only'
+      ],
       install_requires=[
           'singer-python==5.3.1',
           'cx_Oracle==6.1',
