@@ -34,9 +34,9 @@ WMS17
 
 Tap-Oracle user need to be created with the following rights on DB :
 
-* CREATE_SESSION role
+* CREATE_SESSION system privilege
 ```
-grant CREATE_SESSION to singer_user;
+grant CREATE SESSION to singer_user;
 ```
 * SELECT right on  V_$DATABASE
 ```
