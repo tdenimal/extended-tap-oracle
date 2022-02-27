@@ -129,31 +129,41 @@ def sync_tables_logminer(conn_config,cur, streams, state, start_scn, end_scn):
 
    #DBMS_LOGMNR.CONTINUOUS_MINE is not avilable from 19c
    #List all files to be added for logming session
+   
    logs_list_sql = f"""select ROWNUM,logfilename
                   from 
-                  (select MEMBER,FIRST_CHANGE#,NEXT_CHANGE# from v$log
-                  inner join gv$logfile using (GROUP#) 
-                  where ARCHIVED='NO' AND  FIRST_CHANGE# between {start_scn} and {end_scn}
+                  (select MEMBER as logfilename,FIRST_CHANGE#,NEXT_CHANGE# from gv$log
+                  inner join gv$logfile using (INST_ID,GROUP#) 
+                  where ARCHIVED='NO'
                   UNION ALL
                   select NAME,FIRST_CHANGE#,NEXT_CHANGE# FROM gv$archived_log
-                  WHERE FIRST_CHANGE# between {start_scn} and {end_scn}
+                  WHERE NEXT_CHANGE# between {start_scn} and {end_scn}
                   order by FIRST_CHANGE#)"""
+   LOGGER.info("%s",logs_list_sql)
+   logs_list = cur.execute(logs_list_sql).fetchall()
+   
 
-   for rownum,logfilename in cur.execute(logs_list_sql):
+   for rownum,logfilename in logs_list:
+   
+      
       if rownum == 1:
-         add_logmnr_sql = f"""BEGIN
-                           DBMS_LOGMNR.ADD_LOGFILE (options => DBMS_LOGMNR.new,
-                                                    logfilename => '{logfilename}');
-                           END;"""
-         cur.execute(add_logmnr_sql)
+         add_logmnr_sql = """
+                     BEGIN
+                     DBMS_LOGMNR.ADD_LOGFILE(options => DBMS_LOGMNR.new,
+                                             logfilename => :logfile);
+                     END;
+                     """
          LOGGER.info("%s",add_logmnr_sql)
+         cur.execute(add_logmnr_sql,logfile=logfilename)
       else:
-         add_logmnr_sql = f"""BEGIN
-                           DBMS_LOGMNR.ADD_LOGFILE (options => DBMS_LOGMNR.addfile,
-                                                    logfilename => '{logfilename}');
-                           END;"""
-         cur.execute(add_logmnr_sql)
+         add_logmnr_sql = """
+                     BEGIN
+                     DBMS_LOGMNR.ADD_LOGFILE(options => DBMS_LOGMNR.addfile,
+                                             logfilename => :logfile);
+                     END;
+                     """
          LOGGER.info("%s",add_logmnr_sql)
+         cur.execute(add_logmnr_sql,logfile=logfilename)
 
    
    start_logmnr_sql = """BEGIN
@@ -181,16 +191,18 @@ def sync_tables_logminer(conn_config,cur, streams, state, start_scn, end_scn):
       schema_name = md_map.get(()).get('schema-name')
       stream_version = get_stream_version(stream.tap_stream_id, state)
       mine_sql = """
-      SELECT OPERATION, SQL_REDO, SCN, CSCN, COMMIT_TIMESTAMP,  {}, {} 
+      SELECT OPERATION, SQL_REDO, SCN, CSCN, COMMIT_TIMESTAMP, {}, {} 
       from v$logmnr_contents where table_name = :table_name AND seg_owner = :seg_owner 
-      AND operation in ('INSERT', 'UPDATE', 'DELETE')
-      AND SRC_CON_UID = (select CON_UID from v$pdbs where name='{}');
+      AND operation in ('INSERT', 'UPDATE', 'DELETE') 
+      AND SRC_CON_UID = (select CON_UID from v$pdbs where upper(name)=upper('{}'))
       """.format(redo_value_sql_clause, undo_value_sql_clause, conn_config['pdb_name'])
       binds = [orc_db.fully_qualified_column_name(schema_name, stream.table, c) for c in desired_columns] + \
               [orc_db.fully_qualified_column_name(schema_name, stream.table, c) for c in desired_columns] + \
               [stream.table] + [schema_name]
 
-
+      print(md_map)
+      print(desired_columns)
+      print(binds)
       rows_saved = 0
       columns_for_record = desired_columns + ['scn', '_sdc_deleted_at']
       with metrics.record_counter(None) as counter:

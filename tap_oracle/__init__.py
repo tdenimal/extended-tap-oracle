@@ -53,6 +53,7 @@ FLOAT_TYPES = set([
 
 REQUIRED_CONFIG_KEYS = [
     'service_name',
+    'pdb_name',
     'host',
     'port',
     'user',
@@ -436,10 +437,10 @@ def sync_method_for_streams(streams, state, default_replication_method):
 
    return lookup, traditional_streams, logical_streams
 
-def sync_log_miner_streams(conn_config, log_miner_streams, state, end_scn,pdb_name):
+def sync_log_miner_streams(conn_config, log_miner_streams, state, end_scn):
    if log_miner_streams:
       log_miner_streams = list(map(log_miner.add_automatic_properties, log_miner_streams))
-      state = log_miner.sync_tables(conn_config, log_miner_streams, state, end_scn,pdb_name)
+      state = log_miner.sync_tables(conn_config, log_miner_streams, state, end_scn)
 
    return state
 
@@ -494,7 +495,7 @@ def any_logical_streams(streams, default_replication_method):
 
     return False
 
-def do_sync(conn_config, catalog, default_replication_method, state,pdb_name):
+def do_sync(conn_config, catalog, default_replication_method, state):
    currently_syncing = singer.get_currently_syncing(state)
    streams = list(filter(is_selected_via_metadata, catalog.streams))
    streams.sort(key=lambda s: s.tap_stream_id)
@@ -523,7 +524,7 @@ def do_sync(conn_config, catalog, default_replication_method, state,pdb_name):
    for stream in traditional_streams:
       state = sync_traditional_stream(conn_config, stream, state, sync_method_lookup[stream.tap_stream_id], end_scn)
 
-   state = sync_log_miner_streams(conn_config, list(logical_streams), state, end_scn, pdb_name)
+   state = sync_log_miner_streams(conn_config, list(logical_streams), state, end_scn)
    return state
 
 def main_impl():
@@ -532,10 +533,8 @@ def main_impl():
                   'password': args.config['password'],
                   'host': args.config['host'],
                   'port': args.config['port'],
-                  'service_name':  args.config['service_name']}
-   
-   #pdb_name
-   pdb_name = args.config['pdb_name']
+                  'service_name':  args.config['service_name'],
+                  'pdb_name': args.config['pdb_name']}
 
    if args.config.get('scn_window_size'):
       log_miner.SCN_WINDOW_SIZE=int(args.config['scn_window_size'])
@@ -548,7 +547,7 @@ def main_impl():
 
    elif args.catalog:
       state = args.state
-      do_sync(conn_config, args.catalog, args.config.get('default_replication_method'), state, pdb_name)
+      do_sync(conn_config, args.catalog, args.config.get('default_replication_method'), state)
    else:
       LOGGER.info("No properties were selected")
 
