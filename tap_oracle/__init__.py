@@ -1,19 +1,10 @@
 #!/usr/bin/env python3
 # pylint: disable=missing-docstring,not-an-iterable,too-many-locals,too-many-arguments,invalid-name
 
-import datetime
-import pdb
-import json
-import os
-import sys
-import time
 import collections
 import itertools
-from itertools import dropwhile
 import copy
-import ssl
 import singer
-import singer.metrics as metrics
 import singer.schema
 from singer import utils, metadata, get_bookmark
 from singer.schema import Schema
@@ -534,7 +525,8 @@ def main_impl():
                   'host': args.config['host'],
                   'port': args.config['port'],
                   'service_name':  args.config['service_name'],
-                  'pdb_name': args.config['pdb_name']}
+                  'pdb_name': args.config['pdb_name'],
+                  'multitenant': args.config['multitenant']}
 
    if args.config.get('scn_window_size'):
       log_miner.SCN_WINDOW_SIZE=int(args.config['scn_window_size'])

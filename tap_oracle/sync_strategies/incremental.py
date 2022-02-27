@@ -1,16 +1,12 @@
 #!/usr/bin/env python3
 import singer
-from singer import utils, write_message, get_bookmark
+from singer import utils
 import singer.metadata as metadata
-from singer.schema import Schema
 import tap_oracle.db as orc_db
 import tap_oracle.sync_strategies.common as common
 import singer.metrics as metrics
 import copy
-import pdb
 import time
-import decimal
-import cx_Oracle
 
 LOGGER = singer.get_logger()
 
@@ -23,7 +19,8 @@ def sync_table(conn_config, stream, state, desired_columns):
 
    cur = connection.cursor()
    cur.execute("ALTER SESSION SET TIME_ZONE = '00:00'")
-   cur.execute(f"ALTER SESSION SET CONTAINER = {conn_config['pdb_name']}") #Switch to expected PDB
+   if conn_config['multitenant']:
+      cur.execute(f"ALTER SESSION SET CONTAINER = {conn_config['pdb_name']}") #Switch to expected PDB
    cur.execute("""ALTER SESSION SET NLS_DATE_FORMAT = 'YYYY-MM-DD"T"HH24:MI:SS."00+00:00"'""")
    cur.execute("""ALTER SESSION SET NLS_TIMESTAMP_FORMAT='YYYY-MM-DD"T"HH24:MI:SSXFF"+00:00"'""")
    cur.execute("""ALTER SESSION SET NLS_TIMESTAMP_TZ_FORMAT  = 'YYYY-MM-DD"T"HH24:MI:SS.FFTZH:TZM'""")

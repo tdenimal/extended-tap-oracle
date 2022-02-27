@@ -2,8 +2,6 @@ import re
 import singer
 from singer import  metadata
 import decimal
-import datetime
-import dateutil.parser
 import cx_Oracle
 
 def should_sync_column(metadata, field_name):

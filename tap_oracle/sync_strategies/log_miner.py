@@ -1,17 +1,13 @@
 #!/usr/bin/env python3
 import singer
 import decimal
-import datetime
-import dateutil.parser
-from singer import utils, write_message, get_bookmark
+from singer import utils, get_bookmark
 import singer.metadata as metadata
 import singer.metrics as metrics
 from singer.schema import Schema
 import tap_oracle.db as orc_db
 import copy
-import pdb
 import pytz
-import time
 import tap_oracle.sync_strategies.common as common
 
 LOGGER = singer.get_logger()
@@ -129,7 +125,6 @@ def sync_tables_logminer(conn_config,cur, streams, state, start_scn, end_scn):
 
    #DBMS_LOGMNR.CONTINUOUS_MINE is not avilable from 19c
    #List all files to be added for logming session
-   
    logs_list_sql = f"""select ROWNUM,logfilename
                   from 
                   (select MEMBER as logfilename,FIRST_CHANGE#,NEXT_CHANGE# from gv$log
@@ -144,8 +139,6 @@ def sync_tables_logminer(conn_config,cur, streams, state, start_scn, end_scn):
    
 
    for rownum,logfilename in logs_list:
-   
-      
       if rownum == 1:
          add_logmnr_sql = """
                      BEGIN
@@ -190,19 +183,26 @@ def sync_tables_logminer(conn_config,cur, streams, state, start_scn, end_scn):
 
       schema_name = md_map.get(()).get('schema-name')
       stream_version = get_stream_version(stream.tap_stream_id, state)
-      mine_sql = """
-      SELECT OPERATION, SQL_REDO, SCN, CSCN, COMMIT_TIMESTAMP, {}, {} 
-      from v$logmnr_contents where table_name = :table_name AND seg_owner = :seg_owner 
-      AND operation in ('INSERT', 'UPDATE', 'DELETE') 
-      AND SRC_CON_UID = (select CON_UID from v$pdbs where upper(name)=upper('{}'))
-      """.format(redo_value_sql_clause, undo_value_sql_clause, conn_config['pdb_name'])
+      
+      if conn_config['multitenant']:
+         mine_sql = """
+         SELECT OPERATION, SQL_REDO, SCN, CSCN, COMMIT_TIMESTAMP, {}, {} 
+         from v$logmnr_contents where table_name = :table_name AND seg_owner = :seg_owner 
+         AND operation in ('INSERT', 'UPDATE', 'DELETE') 
+         AND SRC_CON_UID = (select CON_UID from v$pdbs where upper(name)=upper('{}'))
+         """.format(redo_value_sql_clause, undo_value_sql_clause, conn_config['pdb_name'])
+      else:
+         mine_sql = """
+         SELECT OPERATION, SQL_REDO, SCN, CSCN, COMMIT_TIMESTAMP, {}, {} 
+         from v$logmnr_contents where table_name = :table_name AND seg_owner = :seg_owner 
+         AND operation in ('INSERT', 'UPDATE', 'DELETE') 
+         """.format(redo_value_sql_clause, undo_value_sql_clause)
+         
+         
       binds = [orc_db.fully_qualified_column_name(schema_name, stream.table, c) for c in desired_columns] + \
               [orc_db.fully_qualified_column_name(schema_name, stream.table, c) for c in desired_columns] + \
               [stream.table] + [schema_name]
 
-      print(md_map)
-      print(desired_columns)
-      print(binds)
       rows_saved = 0
       columns_for_record = desired_columns + ['scn', '_sdc_deleted_at']
       with metrics.record_counter(None) as counter:
