@@ -6,7 +6,7 @@ with open('README.md') as f:
       long_description = f.read()
 
 setup(name='extended-tap-oracle',
-      version='1.0.3',
+      version='1.0.4',
       description='Singer.io tap for extracting data from Oracle - extended for new Oracle versions',
       long_description = long_description,
       long_description_content_type = 'text/markdown',

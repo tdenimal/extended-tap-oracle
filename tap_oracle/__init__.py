@@ -122,9 +122,9 @@ def filter_schemas_sql_clause(sql, binds_sql, owner_schema=None):
    else:
       return sql
 
-def produce_row_counts(conn, filter_schemas):
+def produce_row_counts(cur, filter_schemas):
    LOGGER.info("fetching row counts")
-   cur = conn.cursor()
+   #cur = conn.cursor()
    row_counts = {}
 
    binds_sql = [":{}".format(b) for b in range(len(filter_schemas))]
@@ -138,9 +138,9 @@ def produce_row_counts(conn, filter_schemas):
 
    return row_counts
 
-def produce_pk_constraints(conn, filter_schemas):
+def produce_pk_constraints(cur, filter_schemas):
    LOGGER.info("fetching pk constraints")
-   cur = conn.cursor()
+   #cur = conn.cursor()
    pk_constraints = {}
 
    binds_sql = [":{}".format(b) for b in range(len(filter_schemas))]
@@ -164,13 +164,13 @@ def produce_pk_constraints(conn, filter_schemas):
 
    return pk_constraints;
 
-def get_database_name(connection):
-   cur = connection.cursor()
+def get_database_name(cur):
+   #cur = connection.cursor()
 
    rows = cur.execute("SELECT name FROM v$database").fetchall()
    return rows[0][0]
 
-def produce_column_metadata(connection, table_info, table_schema, table_name, pk_constraints, column_schemas, cols):
+def produce_column_metadata(cur, table_info, table_schema, table_name, pk_constraints, column_schemas, cols):
    mdata = {}
 
    table_pks = pk_constraints.get(table_schema, {}).get(table_name, [])
@@ -178,7 +178,7 @@ def produce_column_metadata(connection, table_info, table_schema, table_name, pk
    #NB> sadly, some system tables like XDB$STATS have P constraints for columns that do not exist so we must protect against this
    table_pks = list(filter(lambda pk: column_schemas.get(pk, Schema(None)).type is not None, table_pks))
 
-   database_name = get_database_name(connection)
+   database_name = get_database_name(cur)
 
    metadata.write(mdata, (), 'table-key-properties', table_pks)
    metadata.write(mdata, (), 'schema-name', table_schema)
@@ -208,8 +208,10 @@ def produce_column_metadata(connection, table_info, table_schema, table_name, pk
 
    return mdata
 
-def discover_columns(connection, table_info, filter_schemas):
-   cur = connection.cursor()
+def discover_columns(cur, table_info, filter_schemas):
+   #cur = connection.cursor()
+   
+   
    binds_sql = [":{}".format(b) for b in range(len(filter_schemas))]
    if binds_sql:
       sql = """
@@ -246,7 +248,7 @@ def discover_columns(connection, table_info, filter_schemas):
       rec = cur.fetchone()
 
 
-   pk_constraints = produce_pk_constraints(connection, filter_schemas)
+   pk_constraints = produce_pk_constraints(cur, filter_schemas)
    entries = []
    for (k, cols) in itertools.groupby(columns, lambda c: (c.table_schema, c.table_name)):
       cols = list(cols)
@@ -256,7 +258,7 @@ def discover_columns(connection, table_info, filter_schemas):
       column_schemas = {c.column_name : schema_for_column(c, pks_for_table) for c in cols}
       schema = Schema(type='object', properties=column_schemas)
 
-      md = produce_column_metadata(connection,
+      md = produce_column_metadata(cur,
                                    table_info,
                                    table_schema,
                                    table_name,
@@ -283,11 +285,15 @@ def do_discovery(conn_config, filter_schemas):
    connection = orc_db.open_connection(conn_config)
    cur = connection.cursor()
 
-   row_counts = produce_row_counts(connection, filter_schemas)
+   if conn_config['multitenant']:
+      cur.execute(f"ALTER SESSION SET CONTAINER = {conn_config['pdb_name']}") #Switch to expected PDB
+
+   row_counts = produce_row_counts(cur, filter_schemas)
    table_info = {}
 
    binds_sql = [":{}".format(b) for b in range(len(filter_schemas))]
 
+   
 
    sql  = filter_schemas_sql_clause("""
    SELECT owner, table_name
@@ -325,7 +331,7 @@ def do_discovery(conn_config, filter_schemas):
         'is_view': True
      }
 
-   catalog = discover_columns(connection, table_info, filter_schemas)
+   catalog = discover_columns(cur, table_info, filter_schemas)
    dump_catalog(catalog)
    cur.close()
    connection.close()
