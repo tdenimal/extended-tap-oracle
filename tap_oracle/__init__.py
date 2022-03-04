@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # pylint: disable=missing-docstring,not-an-iterable,too-many-locals,too-many-arguments,invalid-name
 
+import os
 import collections
 import itertools
 import copy
@@ -43,8 +44,6 @@ FLOAT_TYPES = set([
 ])
 
 REQUIRED_CONFIG_KEYS = [
-    'service_name',
-    'pdb_name',
     'host',
     'port',
     'user',
@@ -519,14 +518,15 @@ def do_sync(conn_config, catalog, default_replication_method, state):
    return state
 
 def main_impl():
+   
    args = utils.parse_args(REQUIRED_CONFIG_KEYS)
    conn_config = {'user': args.config['user'],
                   'password': args.config['password'],
                   'host': args.config['host'],
                   'port': args.config['port'],
-                  'service_name':  args.config['service_name'],
-                  'pdb_name': args.config['pdb_name'],
-                  'multitenant': args.config['multitenant']}
+                  'service_name':  os.getenv('SERVICE_NAME'),
+                  'pdb_name': os.getenv('PDB_NAME'),
+                  'multitenant': os.getenv('MULTITENANT') }
 
    if args.config.get('scn_window_size'):
       log_miner.SCN_WINDOW_SIZE=int(args.config['scn_window_size'])
