@@ -325,6 +325,7 @@ def do_discovery(conn_config, filter_schemas):
    for row in cur.execute(sql, filter_schemas):
      view_name = row[1]
      schema = row[0]
+     
      if schema not in table_info:
         table_info[schema] = {}
 
@@ -332,7 +333,8 @@ def do_discovery(conn_config, filter_schemas):
         'is_view': True
      }
    
-   for scheme in filter_schemas:
+   
+   for scheme in table_info.keys():
       LOGGER.info(f"Found {len(table_info[scheme])} tables/views in schema {scheme}")
 
    catalog = discover_columns(cur, table_info, filter_schemas)
