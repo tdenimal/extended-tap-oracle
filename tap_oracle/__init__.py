@@ -286,6 +286,7 @@ def do_discovery(conn_config, filter_schemas):
    cur = connection.cursor()
 
    if conn_config['multitenant']:
+      LOGGER.info("DB is multitenant")
       cur.execute(f"ALTER SESSION SET CONTAINER = {conn_config['pdb_name']}") #Switch to expected PDB
 
    row_counts = produce_row_counts(cur, filter_schemas)
@@ -330,8 +331,12 @@ def do_discovery(conn_config, filter_schemas):
      table_info[schema][view_name] = {
         'is_view': True
      }
+   
+   for scheme in filter_schemas:
+      LOGGER.info(f"Found {len(table_info[scheme])} tables/views in schema {scheme}")
 
    catalog = discover_columns(cur, table_info, filter_schemas)
+   
    dump_catalog(catalog)
    cur.close()
    connection.close()
